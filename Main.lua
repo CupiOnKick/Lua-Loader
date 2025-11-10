@@ -99,17 +99,24 @@ end
 -- If we have a remote list, we'll sequentially load each file (showing timing on the splash)
 if remoteList then
     task.spawn(function()
-        -- make sure splash visible and label set
+        -- prepare deterministic order
+        local names = {}
+        for fname in pairs(remoteList) do table.insert(names, fname) end
+        table.sort(names, function(a,b) return a:lower() < b:lower() end)
+
         label.Text = "Loading remote modules..."
-        for filename, download_url in pairs(remoteList) do
-            -- fetch file
+        for _, filename in ipairs(names) do
+            local download_url = remoteList[filename]
+            label.Text = "Downloading " .. filename .. "..."
+
+            -- Prefer game:HttpGetAsync as requested
             local content
             local ok, res = pcall(function()
-                return game.HttpGetAsync and game:HttpGetAsync(download_url) or nil
+                return (game.HttpGetAsync and game:HttpGetAsync(download_url))
             end)
             if not (ok and type(res) == "string") then
                 ok, res = pcall(function()
-                    return game.HttpGet and game:HttpGet(download_url) or nil
+                    return (game.HttpGet and game:HttpGet(download_url))
                 end)
             end
             if not (ok and type(res) == "string") then
@@ -119,7 +126,6 @@ if remoteList then
             if ok and type(res) == "string" then content = res end
 
             if content then
-                -- measure execution time
                 local startTime = os.clock()
                 local loader = loadstring or load
                 if loader then
